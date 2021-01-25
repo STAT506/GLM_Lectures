@@ -1,0 +1,97 @@
+---
+title: "Other Generalized Linear Models"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+set.seed(01252021)
+```
+
+#### Logistic Binomial Model
+
+
+For count data we have discussed Poisson and Negative-Binomial sampling models. 
+
+\vfill
+
+
+\vfill
+
+```{r}
+batting <- read_csv('http://math.montana.edu/ahoegh/teaching/stat491/data/BattingAverage.csv') %>% 
+  mutate(NotHits = AtBats - Hits)
+batting %>% sample_n(5)
+```
+
+\newpage
+
+
+\vfill
+
+```{r}
+log_binom <- stan_glm(cbind(Hits, NotHits ) ~ PriPos - 1, 
+              family = binomial(link = "logit"), data = batting, refresh = 0)
+
+print(log_binom, digits = 2)
+```
+
+\vfill
+
+
+
+Overdispersion can also occur with binomial data. Recall that the variance of binomial trials is $np(1-p)$. 
+
+\vfill
+
+\vfill
+
+
+\newpage
+
+#### Probit Model
+
+
+\vfill
+
+
+\vfill
+
+
+
+\newpage
+
+```{r}
+probit_binom <- stan_glm(cbind(Hits, NotHits ) ~ PriPos - 1, 
+              family = binomial(link = "probit"), data = batting, refresh = 0)
+print(probit_binom)
+plot(probit_binom)
+```
+
+\newpage
+
+So what do the coefficients mean in this model?
+
+\vfill
+
+```{r}
+log_binom$coefficients
+probit_binom$coefficients
+```
+
+\vfill
+
+```{r}
+invlogit(log_binom$coefficients) * 1000
+pnorm(probit_binom$coefficients) * 1000
+```
+
+
+
+

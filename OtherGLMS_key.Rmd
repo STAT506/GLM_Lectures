@@ -1,0 +1,131 @@
+---
+title: "Other Generalized Linear Models"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+set.seed(01252021)
+```
+
+#### Logistic Binomial Model
+
+
+For count data we have discussed Poisson and Negative-Binomial sampling models. *It is also possible to use a Binomial distribution, but know that the support of the response will not be countably infinite.*
+
+\vfill
+
+*A common example of binomial data would be free throw shooting for basketball players or batting data for baseball players.*
+
+\vfill
+
+```{r}
+batting <- read_csv('http://math.montana.edu/ahoegh/teaching/stat491/data/BattingAverage.csv') %>% 
+  mutate(NotHits = AtBats - Hits)
+batting %>% sample_n(5)
+```
+
+\newpage
+
+*The logistic-binomial framework is written as:*
+
+\begin{align}
+y_i \sim & Binomial(n_i, p_i), \\
+logit(p_i) = & X_i \beta
+\end{align}
+
+\vfill
+
+```{r}
+log_binom <- stan_glm(cbind(Hits, NotHits ) ~ PriPos - 1, 
+              family = binomial(link = "logit"), data = batting, refresh = 0)
+
+print(log_binom, digits = 2)
+```
+
+\vfill
+
+
+
+Overdispersion can also occur with binomial data. Recall that the variance of binomial trials is $np(1-p)$. *Then define the residuals as $z_i = \frac{y_i - \hat{y_i}}{sd(\hat{y_i})}$.*
+
+\vfill
+*Then the $z_i$ terms should be approximately iid N(0,1). A formal test for $\sum z_i^2$ using a $\chi^2$ distribution can be used to detect overdispersion.*
+
+\vfill
+
+*Often hierarchical models will solve some of these issues, otherwise an overdispersion model can be formulated with variance equal to $\omega np(1-p)$. See `brm` or write your own in stan.*
+
+\newpage
+
+#### Probit Model
+
+*Consider an alternative link function for binary/binomial data.*
+
+\begin{align}
+y_i \sim & Binomial(n_i, p_i), \\
+\Phi^{-1}(p_i) = & X_i \beta \\
+p_i = & \Phi(X_i \beta),
+\end{align}
+
+*where $\Phi()$ is the cumulative distribution function for a standard normal random variable.*
+\vfill
+
+*This model is a latent data model, which are very common and useful in statistics. We assume there is an underlying continuous random variable that is mapped to a standard normal distribution.*
+
+```{r, echo = F}
+plot(seq(-4,4, by = .1), dnorm(seq(-4,4, by = .1), mean = -1), type = 'l', axes = F, xlab = '', ylab = '')
+```
+
+\vfill
+
+where
+
+\begin{equation*}
+y_i = \begin{cases} 1 \text{ if }\; z_i > 0 \\
+0  \text{ if }\; z_i < 0 \end{cases}
+\end{equation*}
+
+\begin{align*}
+z_i = & X_i \beta + \epsilon\\
+\epsilon \sim & N(0,1)
+\end{align*}
+
+Note $\epsilon \sim  N(0,1)$ is a necessary constraint for this model.
+
+\newpage
+
+```{r}
+probit_binom <- stan_glm(cbind(Hits, NotHits ) ~ PriPos - 1, 
+              family = binomial(link = "probit"), data = batting, refresh = 0)
+print(probit_binom)
+plot(probit_binom)
+```
+
+\newpage
+
+So what do the coefficients mean in this model?
+
+\vfill
+
+```{r}
+log_binom$coefficients
+probit_binom$coefficients
+```
+
+\vfill
+
+```{r}
+invlogit(log_binom$coefficients) * 1000
+pnorm(probit_binom$coefficients) * 1000
+```
+
+
+
+
