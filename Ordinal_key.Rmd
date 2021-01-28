@@ -1,0 +1,109 @@
+---
+title: "Ordinal Regression + Compound Models"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+library(brms)
+library(optpart)
+set.seed(01252021)
+library(mvabund)
+data("shoshveg")
+data("shoshsite")
+```
+
+### Categorical Data
+
+*Categorical data comes in two different flavors:*
+\vfill
+*1. Ordinal: Likert scale responses*
+\vfill
+*2. Unordered: favorite winter Montana activity (skiing, sleeping, doing Statistics)*
+
+\vfill
+
+### Models for Ordinal Data
+
+
+Recall the latent formulation for probit model
+
+
+```{r, echo = F}
+plot(seq(-2.5,2.5,.1), dnorm(seq(-2.5,2.5,.1)), type = 'l', axes = F , ylab = '', xlab ='')
+```
+
+\vfill
+
+*Let $y$ be a vector categorical response*
+
+\begin{align}
+y &\sim Multinomial(\pi_1, ..., \pi_k)\\
+\end{align}
+
+*Using the latent data formulation, let $z$ be a continuous normal random variable with mean (XB) and variance 1. Then, for k = 3,*
+\begin{equation*}
+y_i = \begin{cases} 1 \text{ if }\; z_i < c_{1|2} \\
+2 \text{ if }\;c_{2|3} \leq z_i \geq c_{1|2} \\
+3 \text{ if }\; z_i > c_{2|3} \end{cases}
+\end{equation*}
+
+\vfill
+\newpage
+
+Then given $z_i \sim N(X_i \beta, 1),$ $\underline{\pi_i}$ can be calculated by integrating the area of the distribution in the appropriate cut points.
+
+```{r, echo = F}
+plot(seq(-2.5,2.5,.1), dnorm(seq(-2.5,2.5,.1)), type = 'l', axes = F , ylab = '', xlab ='')
+```
+
+For instance, suppose $X_i \beta = 2$ and $c_{1|2} = 0, c_{2|3} = 2$, then
+
+$\pi_1 =$ `pnorm(0, mean = 2)` = (`r pnorm(0, mean = 2)`)
+
+\vfill
+
+$\pi_2 =$ `pnorm(2, mean = 2) - pnorm(0, mean = 2)` = (`r pnorm(2, mean = 2) - pnorm(0, mean = 2)`)
+
+\vfill
+
+$\pi_3 =$ `1 - pnorm(2, mean = 2)` = (`r 1 - pnorm(2, mean = 2)`)
+
+\vfill
+
+\newpage
+
+#### Vegetation Coverage Class Data
+
+Plant coverage is an important ecological indicator. However, estimating plant coverage can be difficult and is often summarized in an ordinal manner.
+
+\vfill
+
+```{r}
+class <- shoshveg  %>% 
+          mutate(class = case_when(
+            ABILAS <= .5 ~ 1,
+            ABILAS > .5 & ABILAS <= 3  ~ 2,
+            TRUE ~3)) %>% 
+          mutate(class = factor(class)) %>%
+          dplyr::select(class) %>% pull()
+
+plant_cover <- tibble(class = class, elevation = scale(shoshsite$elevation))
+```
+
+\vfill
+
+```{r}
+ord <- polr(class ~ elevation, data = plant_cover, method = 'probit')
+summary(ord)
+bayes_ord <- stan_polr(class ~ elevation, data = plant_cover, method = 'probit',
+          prior = R2(0.25, 'mean'), refresh = 0)
+print(bayes_ord, digits = 2)
+```
+

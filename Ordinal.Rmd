@@ -1,0 +1,84 @@
+---
+title: "Ordinal Regression"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+library(brms)
+library(optpart)
+set.seed(01252021)
+library(mvabund)
+data("shoshveg")
+data("shoshsite")
+```
+
+### Categorical Data
+
+\vfill
+\vfill
+
+\vfill
+
+### Models for Ordinal Data
+
+
+Recall the latent formulation for probit model
+
+
+```{r, echo = F}
+plot(seq(-2.5,2.5,.1), dnorm(seq(-2.5,2.5,.1)), type = 'l', axes = F , ylab = '', xlab ='')
+```
+
+\vfill
+
+\vfill
+\vfill
+\newpage
+
+\vfill
+
+```{r, echo = F}
+plot(seq(-2.5,2.5,.1), dnorm(seq(-2.5,2.5,.1)), type = 'l', axes = F , ylab = '', xlab ='')
+```
+
+\vfill
+
+\vfill
+
+\newpage
+
+#### Vegetation Coverage Class Data
+
+Plant coverage is an important ecological indicator. However, estimating plant coverage can be difficult and is often summarized in an ordinal manner.
+
+\vfill
+
+```{r}
+class <- shoshveg  %>% 
+          mutate(class = case_when(
+            ABILAS <= .5 ~ 1,
+            ABILAS > .5 & ABILAS <= 3  ~ 2,
+            TRUE ~3)) %>% 
+          mutate(class = factor(class)) %>%
+          dplyr::select(class) %>% pull()
+
+plant_cover <- tibble(class = class, elevation = scale(shoshsite$elevation))
+```
+
+\vfill
+
+```{r}
+ord <- polr(class ~ elevation, data = plant_cover, method = 'probit')
+summary(ord)
+bayes_ord <- stan_polr(class ~ elevation, data = plant_cover, method = 'probit',
+          prior = R2(0.25, 'mean'), refresh = 0)
+print(bayes_ord, digits = 2)
+```
+
