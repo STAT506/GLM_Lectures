@@ -1,0 +1,171 @@
+---
+title: "Extending GLMs"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+library(rstan)
+library(brms)
+library(extraDistr)
+set.seed(02012021)
+```
+
+#### Heteroscedastic Models
+
+
+\vfill
+
+```{r}
+n <- 500
+x <- runif(n,0,10)
+beta0 <- 1
+beta1 <- 2
+y <- rnorm(n, mean = beta0 + x * beta1, sd = x *sqrt(2))
+
+tibble(y = y, x = x) %>% ggplot(aes(y = y, x = x)) +
+  geom_point() + theme_bw() + 
+  geom_smooth(formula = 'y~x', method ='lm')
+```
+\vfill
+\newpage
+
+Stan code can be written to estimate the variance as a function of x.
+
+```{stan output.var='text_only', eval = F}
+data {
+  int<lower=0> N;
+  vector[N] y;
+  vector[N] x;
+}
+
+
+
+
+
+
+```
+
+
+\vfill
+```{r, results = 'hide', message = F, error = F, warning = F}
+reg_ncv <- stan("heteroskedastic_regression.stan", data=list(N = n, y=y, x = x), refresh = 0)
+```
+
+\vfill
+
+```{r}
+print(reg_ncv)
+```
+
+\newpage
+
+## Mixture Models
+
+Sometimes a single probability distribution isn't sufficient to model an outcome of interest. 
+
+\vfill
+
+\vfill
+
+\vfill
+
+\vfill
+
+\vfill
+
+
+
+
+\vfill
+
+
+
+\newpage
+
+This model could be coded in stan or consider using the `brms` package (bayesian regresion models in stan)
+
+\vfill
+
+```{r, message = F, results = 'hide', warning = F}
+zero_prob <- .33
+n <- 1000
+indicator <- rbinom(n,1,zero_prob)
+counts <- tibble(counts = rpois(n, lambda = 15) * (1 - indicator))
+
+zip <- brm(counts ~ 1, data = counts, 
+           family = zero_inflated_poisson, refresh = 0)
+# zip <- brm(counts ~ 1, data = counts, 
+#family = zero_inflated_poisson, refresh = 0, save_model = 'zip')
+```
+
+\vfill
+
+```{r}
+print(zip)
+```
+
+
+\newpage
+
+
+
+\vfill
+
+\vfill
+
+```{r}
+trunc_pois <- tibble(y = rtpois(n, 5, a = 0, b = Inf))
+
+trunc_pois %>% ggplot(aes(x = y)) + 
+  geom_bar() + theme_bw() + xlim(0, NA)
+```
+
+\vfill
+
+
+```{r, results = 'hide', warning =F, message = F}
+truncated_pois <- brm(y ~ 1, data = trunc_pois, family = hurdle_poisson, refresh = 0)
+```
+
+\newpage
+
+```{r, warning = F, message = F}
+print(truncated_pois)
+```
+
+\vfill
+
+\newpage
+
+
+```{r, results = 'hide'}
+hurdle_pois <- trunc_pois %>% bind_rows(tibble(y = rep(0, n)))
+hurdle_poisson <- brm(y ~ 1, data = hurdle_pois, family = hurdle_poisson, refresh = 0)
+```
+
+```{r}
+print(hurdle_poisson)
+```
+
+#### Discrete / Continuous
+
+
+```{r}
+zero_prob <- .33
+n <- 1000
+indicator <- rbinom(n,1,zero_prob)
+counts <- tibble(counts = rlnorm(n, meanlog = log(5)) * (1 - indicator))
+
+head(counts)
+
+counts %>% ggplot(aes(x = counts)) + geom_histogram(bins = 40)
+```
+
+

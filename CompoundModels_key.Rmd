@@ -1,0 +1,193 @@
+---
+title: "Extending GLMs"
+output: pdf_document
+---
+
+\renewcommand{\vec}[1]{\mathbf{#1}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = 'center')
+library(tidyverse) 
+library(rstanarm)
+library(arm)
+library(gridExtra)
+library(rstan)
+library(brms)
+library(extraDistr)
+set.seed(02012021)
+```
+
+#### Heteroscedastic Models
+
+_Constant variance is a standard assumption in linear models. However consider data that violates that assumption._
+
+\vfill
+
+```{r}
+n <- 500
+x <- runif(n,0,10)
+beta0 <- 1
+beta1 <- 2
+y <- rnorm(n, mean = beta0 + x * beta1, sd = x *sqrt(2))
+
+tibble(y = y, x = x) %>% ggplot(aes(y = y, x = x)) +
+  geom_point() + theme_bw() + 
+  geom_smooth(formula = 'y~x', method ='lm')
+```
+\vfill
+\newpage
+
+Stan code can be written to estimate the variance as a function of x.
+
+```{stan output.var='text_only', eval = F}
+data {
+  int<lower=0> N;
+  vector[N] y;
+  vector[N] x;
+}
+
+parameters {
+  real beta0;
+  real beta1;
+  real<lower=0> sigma;
+}
+
+model {
+  y ~ normal(beta0 + beta1 * x, sigma * x);
+}
+
+```
+
+
+\vfill
+```{r, results = 'hide', message = F, error = F, warning = F}
+reg_ncv <- stan("heteroskedastic_regression.stan", data=list(N = n, y=y, x = x), refresh = 0)
+```
+
+\vfill
+
+```{r}
+print(reg_ncv)
+```
+
+\newpage
+
+## Mixture Models
+
+Sometimes a single probability distribution isn't sufficient to model an outcome of interest. _Recall the question about how many times you'd had skis on this winter. Sketch what you believe a sample from the student body would look like._
+
+\vfill
+
+```{r}
+zero_prob <- .33
+n <- 1000
+indicator <- rbinom(n,1,zero_prob)
+counts <- tibble(counts = rpois(n, lambda = 15) * (1 - indicator))
+
+counts %>% 
+  ggplot(aes(x = counts)) + 
+  geom_histogram(bins = 40) + 
+  theme_bw()
+```
+
+\vfill
+
+_Formally this can be represented as a mixture of two distributions:_
+
+1. A Bernoulli distribution
+
+\vfill
+2. A Poisson distribution.
+
+\vfill
+
+If, $y \sim Poisson(\mu)$, then the pdf of y is
+
+$$Pr[y = k] = \frac{\mu^k \exp(-\mu)}{k!}$$
+
+
+
+
+$$y_i = \begin{cases}
+ 0 \text{ (comes from either Bernoulli or Neg Binom) } = \exp(-\mu) + p \\
+ k (s.t. \; k > 0) \text{(comes from the Neg Binom)} = (1-p) \times \frac{\mu^k \exp(-\mu)}{k!}
+\end{cases}$$
+
+\vfill
+
+
+
+\newpage
+
+This model could be coded in stan or consider using the `brms` package (bayesian regresion models in stan)
+
+\vfill
+
+```{r, message = F, results = 'hide', warning = F}
+zip <- brm(counts ~ 1, data = counts, 
+           family = zero_inflated_poisson, refresh = 0)
+# zip <- brm(counts ~ 1, data = counts, 
+#family = zero_inflated_poisson, refresh = 0, save_model = 'zip')
+```
+
+\vfill
+
+```{r}
+print(zip)
+```
+
+
+\newpage
+
+
+_This model that we have specified is formally a zero-inflated Poisson distribution._ 
+
+\vfill
+
+_Now imagine that we are taking surveys as skiers enter the parking lot at Bridger Bowl. The minimum number of trips to Bridger for those skiers would be 1._
+
+\vfill
+
+```{r}
+trunc_pois <- tibble(y = rtpois(n, 5, a = 0, b = Inf))
+
+trunc_pois %>% ggplot(aes(x = y)) + 
+  geom_bar() + theme_bw() + xlim(0, NA)
+```
+
+\vfill
+
+
+```{r}
+truncated_pois <- brm(y ~ 1, data = trunc_pois, family = hurdle_poisson, refresh = 0)
+print(truncated_pois)
+```
+
+\vfill
+
+\newpage
+
+_Truncated distributions and zero-inflated responses are often combined with hurdle models. The hurdle model assumes that all of the zero response comes from the "zero" process, rather than a mixture of the two._
+
+```{r}
+hurdle_pois <- trunc_pois %>% bind_rows(tibble(y = rep(0, n)))
+hurdle_poisson <- brm(y ~ 1, data = hurdle_pois, family = hurdle_poisson, refresh = 0)
+print(hurdle_poisson)
+```
+
+#### Discrete / Continuous
+
+_Furthermore we can also have mixtures of continuous and discrete data. One that is seen fairly often would be concentrations and 0's._
+
+```{r}
+zero_prob <- .33
+n <- 1000
+indicator <- rbinom(n,1,zero_prob)
+counts <- tibble(counts = rlnorm(n, meanlog = log(5)) * (1 - indicator))
+
+head(counts)
+
+counts %>% ggplot(aes(x = counts)) + geom_histogram(bins = 40)
+```
+
+
